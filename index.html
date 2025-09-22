@@ -321,7 +321,7 @@
     function createLobby(){ multiplayer=true; aiEnabled=false; playerColor="white"; connectSocket(true);}
     function joinLobby(){ multiplayer=true; aiEnabled=false; playerColor="black"; connectSocket(false);}
     function connectSocket(isHost){
-      socket=new WebSocket("ws://localhost:3000");
+      socket=new WebSocket("wss://hari-ng-dama-server-1.onrender.com");
       socket.onopen=()=>{socket.send(JSON.stringify({type:isHost?"create":"join",code:document.getElementById("lobbyCode").value}));};
       socket.onmessage=(msg)=>{
         let data=JSON.parse(msg.data);
