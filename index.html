@@ -115,9 +115,7 @@
               circle.setAttribute("stroke", "gold");
               circle.setAttribute("stroke-width", "3");
             }
-            // Mouse select
             circle.addEventListener("click", () => selectPiece(r, c));
-            // Touch select
             circle.addEventListener("touchstart", (e) => {
               e.preventDefault();
               selectPiece(r, c);
@@ -151,14 +149,12 @@
       return { r, c };
     }
 
-    // Mouse click
     boardSVG.addEventListener("click", (e) => {
       if (!selected) return;
       let { r, c } = getCellFromEvent(e);
       attemptMove(selected.r, selected.c, r, c);
     });
 
-    // Touch tap
     boardSVG.addEventListener("touchstart", (e) => {
       if (!selected) return;
       e.preventDefault();
@@ -188,20 +184,16 @@
           piece.king = true;
         }
         if (multiplayer && currentTurn === playerColor) {
-          socket.send(JSON.stringify({ type: "move", sr, sc, tr, tc }));
+          sendMessage({ type: "move", sr, sc, tr, tc });
         }
         switchTurn();
       }
       redraw();
     }
 
-    // --- legalMoves, playerMustCapture, switchTurn, redraw, updateStatus, aiMove ---
-    // (kept from your working version with flying kings, multi-captures, etc.)
-
     function legalMoves(r, c, mustCapture = false) {
       let piece = gameState[r][c];
       if (!piece) return [];
-
       let moves = [];
       let captures = [];
 
@@ -318,16 +310,47 @@
       redraw(); updateStatus();
     }
 
-    function createLobby(){ multiplayer=true; aiEnabled=false; playerColor="white"; connectSocket(true);}
-    function joinLobby(){ multiplayer=true; aiEnabled=false; playerColor="black"; connectSocket(false);}
-    function connectSocket(isHost){
-      socket=new WebSocket("wss://hari-ng-dama-server-3.onrender.com");
-      socket.onopen=()=>{socket.send(JSON.stringify({type:isHost?"create":"join",code:document.getElementById("lobbyCode").value}));};
-      socket.onmessage=(msg)=>{
-        let data=JSON.parse(msg.data);
-        if(data.type==="code")alert("Lobby code: "+data.code);
-        if(data.type==="move"){attemptMove(data.sr,data.sc,data.tr,data.tc);}
+    // --- Multiplayer WebSocket ---
+    function createLobby() { multiplayer=true; aiEnabled=false; playerColor="white"; connectSocket(true);}
+    function joinLobby() { multiplayer=true; aiEnabled=false; playerColor="black"; connectSocket(false);}
+
+    function connectSocket(isHost) {
+      socket = new WebSocket("wss://hari-ng-dama-server-3.onrender.com");
+
+      function sendMessage(data) {
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify(data));
+        } else {
+          socket.addEventListener("open", () => {
+            socket.send(JSON.stringify(data));
+          }, { once: true });
+        }
+      }
+
+      sendMessage({ type: isHost ? "create" : "join", code: document.getElementById("lobbyCode").value });
+
+      socket.onmessage = (msg) => {
+        const data = JSON.parse(msg.data);
+        if (data.type === "code") {
+          alert("Lobby code: " + data.code);
+          document.getElementById("lobbyCode").value = data.code;
+        } else if (data.type === "joined") {
+          updateStatus();
+          alert("You have joined the lobby!");
+        } else if (data.type === "opponentJoined") {
+          updateStatus();
+          alert("Your opponent has joined!");
+        } else if (data.type === "opponentLeft") {
+          alert("Your opponent left the game.");
+        } else if (data.type === "move") {
+          attemptMove(data.sr, data.sc, data.tr, data.tc);
+        } else if (data.type === "error") {
+          alert("Error: " + data.message);
+        }
       };
+
+      socket.onclose = () => { alert("Connection closed."); };
+      socket.onerror = (err) => { console.error("WebSocket error:", err); alert("WebSocket error. Check console."); };
     }
   </script>
 </body>
