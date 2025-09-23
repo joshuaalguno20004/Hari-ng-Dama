@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Hari ng Dama</title>
+  <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https%3A%2F%2Fappurl.io%2F6rfTPxEsI7"/>
   <style>
     body {
       font-family: sans-serif;
@@ -22,7 +23,7 @@
     svg {
       border: 2px solid #333;
       background: #eee;
-      touch-action: none;
+      touch-action: none; /* stop default gestures like scroll/zoom */
     }
     .piece {
       cursor: grab;
@@ -171,12 +172,8 @@
       if (found) {
         gameState[tr][tc] = piece;
         gameState[sr][sc] = null;
-
-
         if (found.capture) {
           gameState[found.capture.r][found.capture.c] = null;
-
-
           let newMoves = legalMoves(tr, tc, true);
           if (newMoves.some(m => m.capture)) {
             selected = { r: tr, c: tc };
@@ -184,12 +181,9 @@
             return;
           }
         }
-
         if ((piece.color === "white" && tr === 0) || (piece.color === "black" && tr === SIZE - 1)) {
           piece.king = true;
-;
         }
-
         if (multiplayer && currentTurn === playerColor) {
           sendMessage({ type: "move", sr, sc, tr, tc });
         }
