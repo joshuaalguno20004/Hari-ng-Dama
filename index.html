@@ -22,7 +22,7 @@
     svg {
       border: 2px solid #333;
       background: #eee;
-      touch-action: none; /* stop default gestures like scroll/zoom */
+      touch-action: none;
     }
     .piece {
       cursor: grab;
@@ -70,6 +70,22 @@
     drawBoard();
     drawPieces();
     updateStatus();
+
+    // --- Freesound API ---
+    async function playSound(soundId) {
+      try {
+        const response = await fetch(
+          `https://freesound.org/apiv2/sounds/${soundId}/?token=bh6TUcoq2WLoVsr6wf0hxjKrDDGTiI6khymIeze9`
+        );
+        const data = await response.json();
+        const previewUrl = data.previews["preview-lq-ogg"];
+        const audio = new Audio(previewUrl);
+        audio.currentTime= 0;
+        audio.play();
+      } catch (err) {
+        console.error("Error playing sound:", err);
+      }
+    }
 
     function initGame() {
       let grid = [];
@@ -171,8 +187,16 @@
       if (found) {
         gameState[tr][tc] = piece;
         gameState[sr][sc] = null;
+
+        // Play move sound
+        playSound(235968);
+
         if (found.capture) {
           gameState[found.capture.r][found.capture.c] = null;
+
+          // Play capture sound
+          playSound(435415);
+
           let newMoves = legalMoves(tr, tc, true);
           if (newMoves.some(m => m.capture)) {
             selected = { r: tr, c: tc };
@@ -180,9 +204,14 @@
             return;
           }
         }
+
         if ((piece.color === "white" && tr === 0) || (piece.color === "black" && tr === SIZE - 1)) {
           piece.king = true;
+
+          // Play promotion sound
+          playSound(342756);
         }
+
         if (multiplayer && currentTurn === playerColor) {
           sendMessage({ type: "move", sr, sc, tr, tc });
         }
