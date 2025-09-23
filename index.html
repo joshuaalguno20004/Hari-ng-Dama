@@ -172,14 +172,10 @@
         gameState[tr][tc] = piece;
         gameState[sr][sc] = null;
 
-        // Play move sound
-        playSound(235968);
 
         if (found.capture) {
           gameState[found.capture.r][found.capture.c] = null;
 
-          // Play capture sound
-          playSound(435415);
 
           let newMoves = legalMoves(tr, tc, true);
           if (newMoves.some(m => m.capture)) {
@@ -191,9 +187,7 @@
 
         if ((piece.color === "white" && tr === 0) || (piece.color === "black" && tr === SIZE - 1)) {
           piece.king = true;
-
-          // Play promotion sound
-          playSound(342756);
+;
         }
 
         if (multiplayer && currentTurn === playerColor) {
