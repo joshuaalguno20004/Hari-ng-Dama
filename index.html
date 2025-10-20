@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Hari ng Dama - Home</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: url("media/background1.png") no-repeat center center/cover;
+    }
+
+    .container {
+      background: rgba(255, 255, 100, 0.4);
+      border-radius: 16px;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      max-width: 400px;
+      width: 100%;
+    }
+
+    h1 {
+      margin-bottom: 16px;
+    }
+
+    img {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      border: 3px solid #333;
+      margin-bottom: 16px;
+    }
+
+    button {
+      margin: 6px;
+      padding: 10px 18px;
+      font-size: 16px;
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      background: #333;
+      color: white;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      background: #555;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Hari ng Dama</h1>
+    <img id="avatar" src="" alt="Avatar"/>
+    <div>
+      <button id="generate-btn">Generate Avatar</button>
+      <button id="set-profile-btn">Set Profile</button>
+    </div>
+    <div style="margin-top:20px;">
+      <button onclick="playGame()">Play</button>
+    </div>
+  </div>
+
+  <script>
+    const avatarImg = document.getElementById("avatar");
+
+    // Generate random DiceBear avatar
+    function generateAvatar() {
+      const seed = Math.random().toString(36).substring(7);
+      const url = `https://api.dicebear.com/9.x/pixel-art/svg?seed=${seed}`;
+      avatarImg.src = url;
+    }
+
+    // Save chosen avatar
+    function setProfile() {
+      localStorage.setItem("profileAvatar", avatarImg.src);
+      alert("Profile avatar saved!");
+    }
+
+    // Load saved avatar on page load
+    function loadProfile() {
+      const saved = localStorage.getItem("profileAvatar");
+      if (saved) {
+        avatarImg.src = saved;
+      } else {
+        generateAvatar();
+      }
+    }
+
+    function playGame() {
+      window.location.href = "game.html"; // Redirect to main dama game
+    }
+
+    document.getElementById("generate-btn").addEventListener("click", generateAvatar);
+    document.getElementById("set-profile-btn").addEventListener("click", setProfile);
+
+    // Initialize
+    loadProfile();
+  </script>
+</body>
+</html>
