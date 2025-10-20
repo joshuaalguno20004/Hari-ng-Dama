@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Hari ng Dama</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 0;
+      padding: 20px;
+      background: url("media/backgound2.png") no-repeat center center/cover;
+    }
+
+    #profile-section {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+      gap: 12px;
+    }
+
+    #profile-section img {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      border: 2px solid #333;
+    }
+
+    #controls {
+      margin-bottom: 10px;
+    }
+
+    button, select, input {
+      margin: 2px;
+      padding: 6px 10px;
+    }
+
+    svg {
+      border: 2px solid #333;
+      background: #eee;
+      touch-action: none; /* stop default gestures like scroll/zoom */
+    }
+
+    .piece {
+      cursor: grab;
+    }
+
+    .highlight {
+      stroke: gold;
+      stroke-width: 3;
+    }
+
+    #status {
+      margin-top: 10px;
+      font-weight: bold;
+      text-align: center;
+    }
+
+  
+  </style>
+</head>
+<body>
+  <h1>Hari ng Dama</h1>
+  <div id="back-btn" style="position:absolute; top:10px; left:10px;">
+  <button onclick="goHome()" style="
+      background:none;
+      border:none;
+      cursor:pointer;
+      font-size:40px;
+      color:rgb(0, 0, 0);
+  ">
+    ⬅
+  </button>
+</div>
+
+  <!-- 👤 Profile Section -->
+  <div id="profile-section">
+    <img id="profile-avatar" src="" alt="Profile Avatar"/>
+    <span id="player-name">Player</span>
+  </div>
+
+  <div id="controls">
+    <button onclick="startVsAI()">START GAME</button>
+    <select id="aiLevel">
+      <option value="easy">Easy</option>
+      <option value="medium">Medium</option>
+      <option value="hard">Hard</option>
+    </select>
+    <button onclick="createLobby()">Create Lobby</button>
+    <button onclick="joinLobby()">Join Lobby</button>
+    <input id="lobbyCode" placeholder="Lobby Code"/>
+  </div>
+
+  <svg id="board" width="560" height="560"></svg>
+  <div id="status"></div>
+
+  <!-- ✅ QR Code moved into body -->
+
+  <script>
+    function goHome() {
+  window.location.href = "index.html"; // adjust filename if needed
+}
+    // --- Load avatar from localStorage ---
+    function loadProfileAvatar() {
+      const saved = localStorage.getItem("profileAvatar");
+      const avatarImg = document.getElementById("profile-avatar");
+      if (saved) {
+        avatarImg.src = saved;
+      } else {
+        avatarImg.src = "https://api.dicebear.com/9.x/pixel-art/svg?seed=default";
+      }
+    }
+    loadProfileAvatar();
+
+    // --- GAME LOGIC ---
+    const SIZE = 8;
+    const CELL = 70;
+    const boardSVG = document.getElementById("board");
+    let gameState = initGame();
+    let selected = null;
+    let currentTurn = "white"; 
+    let aiEnabled = false;
+    let aiLevel = "easy";
+    let multiplayer = false;
+    let socket = null;
+    let playerColor = null;
+
+    drawBoard();
+    drawPieces();
+    updateStatus();
+
+    function initGame() {
+      let grid = [];
+      for (let r = 0; r < SIZE; r++) {
+        grid[r] = [];
+        for (let c = 0; c < SIZE; c++) {
+          if (r < 3 && (r + c) % 2 === 1) grid[r][c] = { color: "black", king: false };
+          else if (r > 4 && (r + c) % 2 === 1) grid[r][c] = { color: "white", king: false };
+          else grid[r][c] = null;
+        }
+      }
+      return grid;
+    }
+
+    function drawBoard() {
+      boardSVG.innerHTML = "";
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          let rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          rect.setAttribute("x", c * CELL);
+          rect.setAttribute("y", r * CELL);
+          rect.setAttribute("width", CELL);
+          rect.setAttribute("height", CELL);
+          rect.setAttribute("fill", (r + c) % 2 === 0 ? "#fff" : "#555");
+          boardSVG.appendChild(rect);
+        }
+      }
+    }
+
+    function drawPieces() {
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      let piece = gameState[r][c];
+      if (piece) {
+        // Create an SVG image instead of circle
+        let img = document.createElementNS("http://www.w3.org/2000/svg", "image");
+        
+        // Position with some padding
+        img.setAttribute("x", c * CELL);
+        img.setAttribute("y", r * CELL);
+        img.setAttribute("width", CELL);
+        img.setAttribute("height", CELL);
+
+        // Set image based on piece color and king status
+        if (piece.color === "white") {
+          img.setAttribute("href", piece.king ? "images/white-king.png" : "images/white-piece.png");
+        } else {
+          img.setAttribute("href", piece.king ? "images/black-king.png" : "images/black-piece.png");
+        }
+
+        // Make clickable
+        img.style.cursor = "pointer";
+        img.addEventListener("click", () => selectPiece(r, c));
+        img.addEventListener("touchstart", (e) => {
+          e.preventDefault();
+          selectPiece(r, c);
+        });
+
+        boardSVG.appendChild(img);
+      }
+    }
+  }
+}
+
+    function selectPiece(r, c) {
+      if (gameState[r][c]?.color !== currentTurn) return;
+      if (multiplayer && currentTurn !== playerColor) return; 
+      selected = { r, c };
+    }
+
+    function getCellFromEvent(e) {
+      let rect = boardSVG.getBoundingClientRect();
+      let clientX, clientY;
+      if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+      let x = clientX - rect.left;
+      let y = clientY - rect.top;
+      let c = Math.floor(x / CELL);
+      let r = Math.floor(y / CELL);
+      return { r, c };
+    }
+
+    boardSVG.addEventListener("click", (e) => {
+      if (!selected) return;
+      let { r, c } = getCellFromEvent(e);
+      attemptMove(selected.r, selected.c, r, c);
+    });
+
+    boardSVG.addEventListener("touchstart", (e) => {
+      if (!selected) return;
+      e.preventDefault();
+      let { r, c } = getCellFromEvent(e);
+      attemptMove(selected.r, selected.c, r, c);
+    });
+
+    function attemptMove(sr, sc, tr, tc) {
+  let piece = gameState[sr][sc];
+  if (!piece) return;
+
+  let mustCapture = playerMustCapture(currentTurn);
+  let moves = legalMoves(sr, sc, mustCapture);
+  let found = moves.find(m => m.r === tr && m.c === tc);
+
+  if (found) {
+    gameState[tr][tc] = piece;
+    gameState[sr][sc] = null;
+
+    // Handle captures
+    if (found.capture) {
+      gameState[found.capture.r][found.capture.c] = null;
+      let newMoves = legalMoves(tr, tc, true);
+      if (newMoves.some(m => m.capture)) {
+        selected = { r: tr, c: tc };
+        redraw();
+        return;
+      }
+    }
+
+    // Crown a king
+    if ((piece.color === "white" && tr === 0) ||
+        (piece.color === "black" && tr === SIZE - 1)) {
+      piece.king = true;
+    }
+
+    // Multiplayer sync
+    if (multiplayer && currentTurn === playerColor) {
+      sendMessage({ type: "move", sr, sc, tr, tc });
+    }
+
+    switchTurn();
+  }
+
+  redraw();
+}
+
+function legalMoves(r, c, mustCapture = false) {
+  let piece = gameState[r][c];
+  if (!piece) return [];
+
+  let moves = [];
+  let captures = [];
+
+  if (piece.king) {
+    let dirs = [[1,1],[1,-1],[-1,1],[-1,-1]];
+    for (let [dr,dc] of dirs) {
+      let nr=r+dr, nc=c+dc, enemy=null;
+      while (nr>=0 && nr<SIZE && nc>=0 && nc<SIZE) {
+        if (!gameState[nr][nc]) {
+          if (!enemy && !mustCapture) moves.push({r:nr,c:nc});
+          if (enemy) captures.push({r:nr,c:nc,capture:enemy});
+        } else {
+          if (!enemy && gameState[nr][nc].color !== piece.color) {
+            enemy = {r:nr,c:nc};
+          } else break;
+        }
+        nr+=dr; nc+=dc;
+      }
+    }
+  } else {
+    let moveDirs = piece.color==="white"?[[-1,1],[-1,-1]]:[[1,1],[1,-1]];
+    let captureDirs = [[1,1],[1,-1],[-1,1],[-1,-1]];
+
+    for (let [dr,dc] of moveDirs) {
+      let nr=r+dr,nc=c+dc;
+      if(nr>=0 && nr<SIZE && nc>=0 && nc<SIZE &&
+         !gameState[nr][nc] && !mustCapture){
+        moves.push({r:nr,c:nc});
+      }
+    }
+
+    for (let [dr,dc] of captureDirs) {
+      let nr=r+dr,nc=c+dc;
+      if(nr>=0 && nr<SIZE && nc>=0 && nc<SIZE &&
+         gameState[nr][nc] && gameState[nr][nc].color !== piece.color) {
+        let jr=nr+dr,jc=nc+dc;
+        if(jr>=0 && jr<SIZE && jc>=0 && jc<SIZE && !gameState[jr][jc]){
+          captures.push({r:jr,c:jc,capture:{r:nr,c:nc}});
+        }
+      }
+    }
+  }
+
+  return captures.length>0 ? captures : moves;
+}
+
+function playerMustCapture(color) {
+  for (let r=0;r<SIZE;r++) {
+    for (let c=0;c<SIZE;c++) {
+      if (gameState[r][c]?.color === color) {
+        if (legalMoves(r,c,true).some(m => m.capture)) return true;
+      }
+    }
+  }
+  return false;
+} 
+
+function switchTurn() {
+  if(checkWinner()) return;
+  currentTurn = currentTurn==="white" ? "black" : "white";
+  selected = null;
+  updateStatus();
+
+  if (aiEnabled && currentTurn === "black") {
+    setTimeout(aiMove, 500);
+  }
+}
+
+function redraw() {
+  drawBoard();
+  drawPieces();
+}
+
+function updateStatus() {
+  let status = "";
+  if (aiEnabled) {
+    status = `You are White vs AI (Black) | Turn: ${currentTurn}`;
+  } else if (multiplayer) {
+    status = `You are ${playerColor.toUpperCase()} | Turn: ${currentTurn}`;
+  } else {
+    status = `Turn: ${currentTurn}`;
+  }
+  document.getElementById("status").innerText = status;
+}
+
+function aiMove() {
+  let mustCapture = playerMustCapture("black");
+  let moves = [];
+
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      if (gameState[r][c]?.color === "black") {
+        legalMoves(r, c, mustCapture).forEach(m =>
+          moves.push({ sr: r, sc: c, tr: m.r, tc: m.c, cap: m.capture })
+        );
+      }
+    }
+  }
+
+  if (moves.length === 0) return;
+  let best = moves[Math.floor(Math.random() * moves.length)];
+  attemptMove(best.sr, best.sc, best.tr, best.tc);
+
+  if (best.cap) {
+    let moreCaptures = legalMoves(best.tr, best.tc, true).filter(m => m.capture);
+    while (moreCaptures.length > 0) {
+      let next = moreCaptures[Math.floor(Math.random() * moreCaptures.length)];
+      attemptMove(best.tr, best.tc, next.r, next.c);
+      moreCaptures = legalMoves(next.r, next.c, true).filter(m => m.capture);
+    }
+  }
+}
+function checkWinner() {
+  let whitePieces = 0;
+  let blackPieces = 0;
+  let whiteMoves = 0;
+  let blackMoves = 0;
+
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      const piece = gameState[r][c];
+      if (piece) {
+        if (piece.color === "white") {
+          whitePieces++;
+          whiteMoves += legalMoves(r, c, playerMustCapture("white")).length;
+        } else {
+          blackPieces++;
+          blackMoves += legalMoves(r, c, playerMustCapture("black")).length;
+        }
+      }
+    }
+  }
+
+  if (whitePieces === 0 || whiteMoves === 0) {
+    setTimeout(() => {
+      alert("😞 YOU LOSE! TRY AGAIN");
+      resetGame();
+    }, 300);
+    return true;
+  }
+
+  if (blackPieces === 0 || blackMoves === 0) {
+    setTimeout(() => {
+      alert("🏆 YOU WIN!");
+      resetGame();
+    }, 300);
+    return true;
+  }
+
+  return false;
+}
+
+
+function startVsAI() {
+  aiEnabled = true;
+  aiLevel = document.getElementById("aiLevel").value;
+  multiplayer = false;
+  playerColor = "white";
+  resetGame();
+}
+
+function resetGame() {
+  gameState = initGame();
+  currentTurn = "white";
+  selected = null;
+  redraw();
+  updateStatus();
+}
+
+// --- Multiplayer WebSocket ---
+function createLobby() { 
+  multiplayer=true; 
+  aiEnabled=false; 
+  playerColor="white"; 
+  connectSocket(true);
+}
+
+function joinLobby() { 
+  multiplayer=true; 
+  aiEnabled=false; 
+  playerColor="black"; 
+  connectSocket(false);
+}
+
+function connectSocket(isHost) {
+  socket = new WebSocket("wss://hari-ng-dama-server-3.onrender.com");
+
+  // move sendMessage OUTSIDE so other funcs (like attemptMove) can call it
+  window.sendMessage = function (data) {
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify(data));
+    } else {
+      socket.addEventListener("open", () => {
+        socket.send(JSON.stringify(data));
+      }, { once: true });
+    }
+  };
+
+  sendMessage({ type: isHost ? "create" : "join", code: document.getElementById("lobbyCode").value });
+
+  socket.onmessage = (msg) => {
+    const data = JSON.parse(msg.data);
+    if (data.type === "code") {
+      alert("Lobby code: " + data.code);
+      document.getElementById("lobbyCode").value = data.code;
+    } else if (data.type === "joined") {
+      updateStatus();
+      alert("You have joined the lobby!");
+    } else if (data.type === "opponentJoined") {
+      updateStatus();
+      alert("Your opponent has joined!");
+    } else if (data.type === "opponentLeft") {
+      alert("Your opponent left the game.");
+    } else if (data.type === "move") {
+      attemptMove(data.sr, data.sc, data.tr, data.tc);
+    } else if (data.type === "error") {
+      alert("Error: " + data.message);
+    }
+  };
+
+  socket.onclose = () => { alert("Connection closed."); };
+  socket.onerror = (err) => { 
+    console.error("WebSocket error:", err); 
+    alert("WebSocket error. Check console."); 
+  };
+}
+
+  </script>
+</body>
+</html>
