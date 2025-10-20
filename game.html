@@ -230,40 +230,40 @@
       attemptMove(selected.r, selected.c, r, c);
     });
 
-    function attemptMove(sr, sc, tr, tc) {
+  
+function attemptMove(sr, sc, tr, tc) {
   let piece = gameState[sr][sc];
   if (!piece) return;
 
   let mustCapture = playerMustCapture(currentTurn);
   let moves = legalMoves(sr, sc, mustCapture);
   let found = moves.find(m => m.r === tr && m.c === tc);
+  if (!found) return;
 
-  if (found) {
-    gameState[tr][tc] = piece;
-    gameState[sr][sc] = null;
+  // Move piece
+  gameState[tr][tc] = piece;
+  gameState[sr][sc] = null;
 
-    // Handle captures
-    if (found.capture) {
-      gameState[found.capture.r][found.capture.c] = null;
-      let newMoves = legalMoves(tr, tc, true);
-      if (newMoves.some(m => m.capture)) {
-        selected = { r: tr, c: tc };
-        redraw();
-        return;
-      }
-    }
+  // Handle capture
+  if (found.capture) {
+    gameState[found.capture.r][found.capture.c] = null;
+  }
 
-    // Crown a king
-    if ((piece.color === "white" && tr === 0) ||
-        (piece.color === "black" && tr === SIZE - 1)) {
-      piece.king = true;
-    }
+  // Crown king
+  if ((piece.color === "white" && tr === 0) || (piece.color === "black" && tr === SIZE-1)) {
+    piece.king = true;
+  }
 
-    // Multiplayer sync
-    if (multiplayer && currentTurn === playerColor) {
-      sendMessage({ type: "move", sr, sc, tr, tc });
-    }
+  // Notify opponent immediately
+  if (multiplayer && currentTurn === playerColor) {
+    sendMessage({ type: "move", sr, sc, tr, tc, capture: found.capture });
+  }
 
+  // Check if more captures possible
+  if (found.capture && legalMoves(tr, tc, true).some(m => m.capture)) {
+    selected = { r: tr, c: tc }; // keep selecting this piece
+  } else {
+    selected = null;
     switchTurn();
   }
 
@@ -472,7 +472,12 @@ function connectSocket(isHost) {
     }
   };
 
-  sendMessage({ type: isHost ? "create" : "join", code: document.getElementById("lobbyCode").value });
+sendMessage({
+  type: "move",
+  sr, sc, tr, tc,
+  capture: found.capture // {r, c} or null
+});
+
 
   socket.onmessage = (msg) => {
     const data = JSON.parse(msg.data);
