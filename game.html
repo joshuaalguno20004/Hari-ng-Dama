@@ -175,8 +175,7 @@
 
         // Set image based on piece color and king status
         if (piece.color === "white") {
-          img.setAttribute("href", piece.king ? <img src="images/white-king.png">
- : "Hari-ng-Dama/white-piece.png");
+          img.setAttribute("href", piece.king ? "images/white-king.png": "Hari-ng-Dama/white-piece.png");
         } else {
           img.setAttribute("href", piece.king ? "Hari-ng-Dama/main/black-king.png" : "Hari-ng-Dama/main/black-piece.png");
         }
