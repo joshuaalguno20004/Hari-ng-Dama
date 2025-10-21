@@ -11,7 +11,7 @@
       align-items: center;
       margin: 0;
       padding: 20px;
-      background: url("images/backgound2.png") no-repeat center center/cover;
+      background: url("./images/backgound2.png") no-repeat center center/cover;
     }
 
     #profile-section {
@@ -147,8 +147,8 @@
             img.setAttribute("width", CELL);
             img.setAttribute("height", CELL);
             img.setAttribute("href", piece.color === "white"
-              ? (piece.king ? "images/white-king.png" : "images/white-piece.png")
-              : (piece.king ? "images/black-king.png" : "images/black-piece.png"));
+              ? (piece.king ? "./images/white-king.png" : "./images/white-piece.png")
+              : (piece.king ? "./images/black-king.png" : "./images/black-piece.png"));
             img.style.cursor = "pointer";
             img.addEventListener("click", () => selectPiece(r, c));
             img.addEventListener("touchstart", (e) => { e.preventDefault(); selectPiece(r, c); });
