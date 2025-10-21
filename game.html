@@ -11,7 +11,7 @@
       align-items: center;
       margin: 0;
       padding: 20px;
-      background: url("./images/backgound2.png") no-repeat center center/cover;
+      background: url("media/backgound2.png") no-repeat center center/cover;
     }
 
     #profile-section {
@@ -40,16 +40,11 @@
     svg {
       border: 2px solid #333;
       background: #eee;
-      touch-action: none; /* stop default gestures like scroll/zoom */
+      touch-action: none;
     }
 
     .piece {
       cursor: grab;
-    }
-
-    .highlight {
-      stroke: gold;
-      stroke-width: 3;
     }
 
     #status {
@@ -57,25 +52,15 @@
       font-weight: bold;
       text-align: center;
     }
-
-  
   </style>
 </head>
 <body>
   <h1>Hari ng Dama</h1>
-  <div id="back-btn" style="position:absolute; top:10px; left:10px;">
-  <button onclick="goHome()" style="
-      background:none;
-      border:none;
-      cursor:pointer;
-      font-size:40px;
-      color:rgb(0, 0, 0);
-  ">
-    ⬅
-  </button>
-</div>
 
-  <!-- 👤 Profile Section -->
+  <div id="back-btn" style="position:absolute; top:10px; left:10px;">
+    <button onclick="goHome()" style="background:none;border:none;cursor:pointer;font-size:40px;color:#000;">⬅</button>
+  </div>
+
   <div id="profile-section">
     <img id="profile-avatar" src="" alt="Profile Avatar"/>
     <span id="player-name">Player</span>
@@ -96,31 +81,23 @@
   <svg id="board" width="560" height="560"></svg>
   <div id="status"></div>
 
-  <!-- ✅ QR Code moved into body -->
-
   <script>
     function goHome() {
-  window.location.href = "index.html"; // adjust filename if needed
-}
-    // --- Load avatar from localStorage ---
+      window.location.href = "index.html";
+    }
+
     function loadProfileAvatar() {
       const saved = localStorage.getItem("profileAvatar");
       const avatarImg = document.getElementById("profile-avatar");
-      if (saved) {
-        avatarImg.src = saved;
-      } else {
-        avatarImg.src = "https://api.dicebear.com/9.x/pixel-art/svg?seed=default";
-      }
+      avatarImg.src = saved || "https://api.dicebear.com/9.x/pixel-art/svg?seed=default";
     }
     loadProfileAvatar();
 
-    // --- GAME LOGIC ---
-    const SIZE = 8;
-    const CELL = 70;
+    const SIZE = 8, CELL = 70;
     const boardSVG = document.getElementById("board");
     let gameState = initGame();
     let selected = null;
-    let currentTurn = "white"; 
+    let currentTurn = "white";
     let aiEnabled = false;
     let aiLevel = "easy";
     let multiplayer = false;
@@ -148,7 +125,7 @@
       boardSVG.innerHTML = "";
       for (let r = 0; r < SIZE; r++) {
         for (let c = 0; c < SIZE; c++) {
-          let rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
           rect.setAttribute("x", c * CELL);
           rect.setAttribute("y", r * CELL);
           rect.setAttribute("width", CELL);
@@ -160,352 +137,208 @@
     }
 
     function drawPieces() {
-  for (let r = 0; r < SIZE; r++) {
-    for (let c = 0; c < SIZE; c++) {
-      let piece = gameState[r][c];
-      if (piece) {
-        // Create an SVG image instead of circle
-        let img = document.createElementNS("http://www.w3.org/2000/svg", "image");
-        
-        // Position with some padding
-        img.setAttribute("x", c * CELL);
-        img.setAttribute("y", r * CELL);
-        img.setAttribute("width", CELL);
-        img.setAttribute("height", CELL);
-
-        // Set image based on piece color and king status
-        if (piece.color === "white") {
-          img.setAttribute("href", piece.king ? "./images/white-king.png": "./images/white-piece.png");
-        } else {
-          img.setAttribute("href", piece.king ? "./images/black-king.png" : "./images/black-piece.png");
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          const piece = gameState[r][c];
+          if (piece) {
+            const img = document.createElementNS("http://www.w3.org/2000/svg", "image");
+            img.setAttribute("x", c * CELL);
+            img.setAttribute("y", r * CELL);
+            img.setAttribute("width", CELL);
+            img.setAttribute("height", CELL);
+            img.setAttribute("href", piece.color === "white"
+              ? (piece.king ? "images/white-king.png" : "images/white-piece.png")
+              : (piece.king ? "images/black-king.png" : "images/black-piece.png"));
+            img.style.cursor = "pointer";
+            img.addEventListener("click", () => selectPiece(r, c));
+            img.addEventListener("touchstart", (e) => { e.preventDefault(); selectPiece(r, c); });
+            boardSVG.appendChild(img);
+          }
         }
-
-        // Make clickable
-        img.style.cursor = "pointer";
-        img.addEventListener("click", () => selectPiece(r, c));
-        img.addEventListener("touchstart", (e) => {
-          e.preventDefault();
-          selectPiece(r, c);
-        });
-
-        boardSVG.appendChild(img);
       }
     }
-  }
-}
 
     function selectPiece(r, c) {
       if (gameState[r][c]?.color !== currentTurn) return;
-      if (multiplayer && currentTurn !== playerColor) return; 
+      if (multiplayer && currentTurn !== playerColor) return;
       selected = { r, c };
-    }
-
-    function getCellFromEvent(e) {
-      let rect = boardSVG.getBoundingClientRect();
-      let clientX, clientY;
-      if (e.touches && e.touches.length > 0) {
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
-      } else {
-        clientX = e.clientX;
-        clientY = e.clientY;
-      }
-      let x = clientX - rect.left;
-      let y = clientY - rect.top;
-      let c = Math.floor(x / CELL);
-      let r = Math.floor(y / CELL);
-      return { r, c };
     }
 
     boardSVG.addEventListener("click", (e) => {
       if (!selected) return;
-      let { r, c } = getCellFromEvent(e);
+      const { r, c } = getCellFromEvent(e);
       attemptMove(selected.r, selected.c, r, c);
     });
 
     boardSVG.addEventListener("touchstart", (e) => {
       if (!selected) return;
       e.preventDefault();
-      let { r, c } = getCellFromEvent(e);
+      const { r, c } = getCellFromEvent(e);
       attemptMove(selected.r, selected.c, r, c);
     });
 
-  
-function attemptMove(sr, sc, tr, tc) {
-  let piece = gameState[sr][sc];
-  if (!piece) return;
+    function getCellFromEvent(e) {
+      const rect = boardSVG.getBoundingClientRect();
+      const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+      const y = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+      return { r: Math.floor(y / CELL), c: Math.floor(x / CELL) };
+    }
 
-  let mustCapture = playerMustCapture(currentTurn);
-  let moves = legalMoves(sr, sc, mustCapture);
-  let found = moves.find(m => m.r === tr && m.c === tc);
-  if (!found) return;
+    function attemptMove(sr, sc, tr, tc) {
+      const piece = gameState[sr][sc];
+      if (!piece) return;
 
-  // Move piece
-  gameState[tr][tc] = piece;
-  gameState[sr][sc] = null;
+      const mustCapture = playerMustCapture(currentTurn);
+      const moves = legalMoves(sr, sc, mustCapture);
+      const found = moves.find(m => m.r === tr && m.c === tc);
+      if (!found) return;
 
-  // Handle capture
-  if (found.capture) {
-    gameState[found.capture.r][found.capture.c] = null;
-  }
+      gameState[tr][tc] = piece;
+      gameState[sr][sc] = null;
+      if (found.capture) gameState[found.capture.r][found.capture.c] = null;
 
-  // Crown king
-  if ((piece.color === "white" && tr === 0) || (piece.color === "black" && tr === SIZE-1)) {
-    piece.king = true;
-  }
+      if ((piece.color === "white" && tr === 0) || (piece.color === "black" && tr === SIZE - 1)) piece.king = true;
 
-  // Notify opponent immediately
-  if (multiplayer && currentTurn === playerColor) {
-    sendMessage({ type: "move", sr, sc, tr, tc, capture: found.capture });
-  }
-
-  // Check if more captures possible
-  if (found.capture && legalMoves(tr, tc, true).some(m => m.capture)) {
-    selected = { r: tr, c: tc }; // keep selecting this piece
-  } else {
-    selected = null;
-    switchTurn();
-  }
-
-  redraw();
-}
-
-function legalMoves(r, c, mustCapture = false) {
-  let piece = gameState[r][c];
-  if (!piece) return [];
-
-  let moves = [];
-  let captures = [];
-
-  if (piece.king) {
-    let dirs = [[1,1],[1,-1],[-1,1],[-1,-1]];
-    for (let [dr,dc] of dirs) {
-      let nr=r+dr, nc=c+dc, enemy=null;
-      while (nr>=0 && nr<SIZE && nc>=0 && nc<SIZE) {
-        if (!gameState[nr][nc]) {
-          if (!enemy && !mustCapture) moves.push({r:nr,c:nc});
-          if (enemy) captures.push({r:nr,c:nc,capture:enemy});
-        } else {
-          if (!enemy && gameState[nr][nc].color !== piece.color) {
-            enemy = {r:nr,c:nc};
-          } else break;
-        }
-        nr+=dr; nc+=dc;
+      // Multiplayer sync
+      if (multiplayer && currentTurn === playerColor) {
+        sendMessage({ type: "move", sr, sc, tr, tc, capture: found.capture });
       }
-    }
-  } else {
-    let moveDirs = piece.color==="white"?[[-1,1],[-1,-1]]:[[1,1],[1,-1]];
-    let captureDirs = [[1,1],[1,-1],[-1,1],[-1,-1]];
 
-    for (let [dr,dc] of moveDirs) {
-      let nr=r+dr,nc=c+dc;
-      if(nr>=0 && nr<SIZE && nc>=0 && nc<SIZE &&
-         !gameState[nr][nc] && !mustCapture){
-        moves.push({r:nr,c:nc});
+      // Handle multiple captures
+      const nextMoves = legalMoves(tr, tc, true).filter(m => m.capture);
+      if (found.capture && nextMoves.length > 0) {
+        selected = { r: tr, c: tc };
+      } else {
+        selected = null;
+        switchTurn();
       }
+
+      redraw();
     }
 
-    for (let [dr,dc] of captureDirs) {
-      let nr=r+dr,nc=c+dc;
-      if(nr>=0 && nr<SIZE && nc>=0 && nc<SIZE &&
-         gameState[nr][nc] && gameState[nr][nc].color !== piece.color) {
-        let jr=nr+dr,jc=nc+dc;
-        if(jr>=0 && jr<SIZE && jc>=0 && jc<SIZE && !gameState[jr][jc]){
-          captures.push({r:jr,c:jc,capture:{r:nr,c:nc}});
-        }
-      }
-    }
-  }
-
-  return captures.length>0 ? captures : moves;
-}
-
-function playerMustCapture(color) {
-  for (let r=0;r<SIZE;r++) {
-    for (let c=0;c<SIZE;c++) {
-      if (gameState[r][c]?.color === color) {
-        if (legalMoves(r,c,true).some(m => m.capture)) return true;
-      }
-    }
-  }
-  return false;
-} 
-
-function switchTurn() {
-  if(checkWinner()) return;
-  currentTurn = currentTurn==="white" ? "black" : "white";
-  selected = null;
-  updateStatus();
-
-  if (aiEnabled && currentTurn === "black") {
-    setTimeout(aiMove, 500);
-  }
-}
-
-function redraw() {
-  drawBoard();
-  drawPieces();
-}
-
-function updateStatus() {
-  let status = "";
-  if (aiEnabled) {
-    status = `You are White vs AI (Black) | Turn: ${currentTurn}`;
-  } else if (multiplayer) {
-    status = `You are ${playerColor.toUpperCase()} | Turn: ${currentTurn}`;
-  } else {
-    status = `Turn: ${currentTurn}`;
-  }
-  document.getElementById("status").innerText = status;
-}
-
-function aiMove() {
-  let mustCapture = playerMustCapture("black");
-  let moves = [];
-
-  for (let r = 0; r < SIZE; r++) {
-    for (let c = 0; c < SIZE; c++) {
-      if (gameState[r][c]?.color === "black") {
-        legalMoves(r, c, mustCapture).forEach(m =>
-          moves.push({ sr: r, sc: c, tr: m.r, tc: m.c, cap: m.capture })
-        );
-      }
-    }
-  }
-
-  if (moves.length === 0) return;
-  let best = moves[Math.floor(Math.random() * moves.length)];
-  attemptMove(best.sr, best.sc, best.tr, best.tc);
-
-  if (best.cap) {
-    let moreCaptures = legalMoves(best.tr, best.tc, true).filter(m => m.capture);
-    while (moreCaptures.length > 0) {
-      let next = moreCaptures[Math.floor(Math.random() * moreCaptures.length)];
-      attemptMove(best.tr, best.tc, next.r, next.c);
-      moreCaptures = legalMoves(next.r, next.c, true).filter(m => m.capture);
-    }
-  }
-}
-function checkWinner() {
-  let whitePieces = 0;
-  let blackPieces = 0;
-  let whiteMoves = 0;
-  let blackMoves = 0;
-
-  for (let r = 0; r < SIZE; r++) {
-    for (let c = 0; c < SIZE; c++) {
+    function legalMoves(r, c, mustCapture = false) {
       const piece = gameState[r][c];
-      if (piece) {
-        if (piece.color === "white") {
-          whitePieces++;
-          whiteMoves += legalMoves(r, c, playerMustCapture("white")).length;
-        } else {
-          blackPieces++;
-          blackMoves += legalMoves(r, c, playerMustCapture("black")).length;
+      if (!piece) return [];
+
+      const moves = [];
+      const captures = [];
+
+      const dirs = piece.king
+        ? [[1,1],[1,-1],[-1,1],[-1,-1]]
+        : (piece.color === "white" ? [[-1,1],[-1,-1]] : [[1,1],[1,-1]]);
+
+      for (const [dr, dc] of dirs) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && !gameState[nr][nc] && !mustCapture)
+          moves.push({ r: nr, c: nc });
+      }
+
+      for (const [dr, dc] of [[1,1],[1,-1],[-1,1],[-1,-1]]) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && gameState[nr][nc] && gameState[nr][nc].color !== piece.color) {
+          const jr = nr + dr, jc = nc + dc;
+          if (jr >= 0 && jr < SIZE && jc >= 0 && jc < SIZE && !gameState[jr][jc])
+            captures.push({ r: jr, c: jc, capture: { r: nr, c: nc } });
         }
       }
+      return captures.length > 0 ? captures : moves;
     }
-  }
 
-  if (whitePieces === 0 || whiteMoves === 0) {
-    setTimeout(() => {
-      alert("😞 YOU LOSE! TRY AGAIN");
-      resetGame();
-    }, 300);
-    return true;
-  }
-
-  if (blackPieces === 0 || blackMoves === 0) {
-    setTimeout(() => {
-      alert("🏆 YOU WIN!");
-      resetGame();
-    }, 300);
-    return true;
-  }
-
-  return false;
-}
-
-
-function startVsAI() {
-  aiEnabled = true;
-  aiLevel = document.getElementById("aiLevel").value;
-  multiplayer = false;
-  playerColor = "white";
-  resetGame();
-}
-
-function resetGame() {
-  gameState = initGame();
-  currentTurn = "white";
-  selected = null;
-  redraw();
-  updateStatus();
-}
-
-// --- Multiplayer WebSocket ---
-function createLobby() { 
-  multiplayer=true; 
-  aiEnabled=false; 
-  playerColor="white"; 
-  connectSocket(true);
-}
-
-function joinLobby() { 
-  multiplayer=true; 
-  aiEnabled=false; 
-  playerColor="black"; 
-  connectSocket(false);
-}
-
-function connectSocket(isHost) {
-  socket = new WebSocket("wss://hari-ng-dama-server-3.onrender.com");
-
-  // move sendMessage OUTSIDE so other funcs (like attemptMove) can call it
-  window.sendMessage = function (data) {
-    if (socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify(data));
-    } else {
-      socket.addEventListener("open", () => {
-        socket.send(JSON.stringify(data));
-      }, { once: true });
+    function playerMustCapture(color) {
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          if (gameState[r][c]?.color === color && legalMoves(r, c, true).some(m => m.capture)) return true;
+        }
+      }
+      return false;
     }
-  };
 
-sendMessage({
-  type: "move",
-  sr, sc, tr, tc,
-  capture: found.capture // {r, c} or null
-});
-
-
-  socket.onmessage = (msg) => {
-    const data = JSON.parse(msg.data);
-    if (data.type === "code") {
-      alert("Lobby code: " + data.code);
-      document.getElementById("lobbyCode").value = data.code;
-    } else if (data.type === "joined") {
+    function switchTurn() {
+      if (checkWinner()) return;
+      currentTurn = currentTurn === "white" ? "black" : "white";
+      selected = null;
       updateStatus();
-      alert("You have joined the lobby!");
-    } else if (data.type === "opponentJoined") {
-      updateStatus();
-      alert("Your opponent has joined!");
-    } else if (data.type === "opponentLeft") {
-      alert("Your opponent left the game.");
-    } else if (data.type === "move") {
-      attemptMove(data.sr, data.sc, data.tr, data.tc);
-    } else if (data.type === "error") {
-      alert("Error: " + data.message);
+      if (aiEnabled && currentTurn === "black") setTimeout(aiMove, 500);
     }
-  };
 
-  socket.onclose = () => { alert("Connection closed."); };
-  socket.onerror = (err) => { 
-    console.error("WebSocket error:", err); 
-    alert("WebSocket error. Check console."); 
-  };
-}
+    function redraw() { drawBoard(); drawPieces(); }
 
+    function updateStatus() {
+      let status = multiplayer
+        ? `You are ${playerColor.toUpperCase()} | Turn: ${currentTurn}`
+        : (aiEnabled ? `You are White vs AI (Black) | Turn: ${currentTurn}` : `Turn: ${currentTurn}`);
+      document.getElementById("status").innerText = status;
+    }
+
+    function aiMove() {
+      const mustCapture = playerMustCapture("black");
+      const moves = [];
+      for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
+        if (gameState[r][c]?.color === "black") {
+          legalMoves(r, c, mustCapture).forEach(m => moves.push({ sr: r, sc: c, tr: m.r, tc: m.c }));
+        }
+      }
+      if (moves.length === 0) return;
+      const best = moves[Math.floor(Math.random() * moves.length)];
+      attemptMove(best.sr, best.sc, best.tr, best.tc);
+    }
+
+    function checkWinner() {
+      let whitePieces = 0, blackPieces = 0;
+      for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
+        const piece = gameState[r][c];
+        if (piece) (piece.color === "white" ? whitePieces++ : blackPieces++);
+      }
+      if (whitePieces === 0) { alert("😞 YOU LOSE! TRY AGAIN"); resetGame(); return true; }
+      if (blackPieces === 0) { alert("🏆 YOU WIN!"); resetGame(); return true; }
+      return false;
+    }
+
+    function startVsAI() {
+      aiEnabled = true;
+      aiLevel = document.getElementById("aiLevel").value;
+      multiplayer = false;
+      playerColor = "white";
+      resetGame();
+    }
+
+    function resetGame() {
+      gameState = initGame();
+      currentTurn = "white";
+      selected = null;
+      redraw();
+      updateStatus();
+    }
+
+    // Multiplayer WebSocket
+    function createLobby() { multiplayer = true; aiEnabled = false; playerColor = "white"; connectSocket(true); }
+    function joinLobby() { multiplayer = true; aiEnabled = false; playerColor = "black"; connectSocket(false); }
+
+    function connectSocket(isHost) {
+      socket = new WebSocket("wss://hari-ng-dama-server-3.onrender.com");
+
+      window.sendMessage = (data) => {
+        if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(data));
+        else socket.addEventListener("open", () => socket.send(JSON.stringify(data)), { once: true });
+      };
+
+      socket.onopen = () => sendMessage({ type: isHost ? "create" : "join", code: document.getElementById("lobbyCode").value });
+
+      socket.onmessage = (msg) => {
+        const data = JSON.parse(msg.data);
+        if (data.type === "code") {
+          alert("Lobby code: " + data.code);
+          document.getElementById("lobbyCode").value = data.code;
+        } else if (data.type === "move") {
+          attemptMove(data.sr, data.sc, data.tr, data.tc);
+        } else if (data.type === "error") {
+          alert("Error: " + data.message);
+        }
+      };
+
+      socket.onclose = () => alert("Connection closed.");
+      socket.onerror = (err) => console.error("WebSocket error:", err);
+    }
   </script>
 </body>
 </html>
